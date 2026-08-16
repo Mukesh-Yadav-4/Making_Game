@@ -10,9 +10,11 @@
     normal: {speed:185, spawn:1.05, maxObstacles:7, label:'NORMAL'},
     hard:   {speed:260, spawn:.74, maxObstacles:10, label:'HARD'}
   };
-  let w=0,h=0,dpr=1,last=0,animationId=0,selectedDifficulty='normal',audioCtx;
-  const keys = { left:false, right:false };
-  const game = { state:'menu', score:0, lives:3, shield:false, elapsed:0, spawnTimer:0, orbTimer:0, shieldTimer:0, lifeTimer:0, bossTimer:0, hitCooldown:0, shake:0, player:null, boss:null, obstacles:[], orbs:[], powers:[], lifeCells:[], particles:[], stars:[] };
+  const themes=[['#111735','#07071a','#02020a'],['#1b1238','#0b0721','#03020d'],['#123638','#061b24','#020b0d'],['#35112a','#190718','#08020c'],['#263313','#0c1b0b','#030904']];
+  const bossTypes=[['VOID WARDEN','#ff3dc8'],['CIRCUIT HYDRA','#a56bff'],['NIGHT REAPER','#ff5b65'],['CHROME BEHEMOTH','#ff9d45'],['THE NULL KING','#77ff9e']];
+  let w=0,h=0,dpr=1,last=0,animationId=0,selectedDifficulty='normal',audioCtx,musicNext=0,musicStep=0;
+  const keys = { left:false, right:false, fire:false };
+  const game = { state:'menu', score:0, lives:3, shield:false, gunTimer:0, gunCooldown:0, elapsed:0, spawnTimer:0, orbTimer:0, shieldTimer:0, gunTimerDrop:0, lifeTimer:0, bossTimer:0, bossLevel:1, scene:0, hitCooldown:0, shake:0, player:null, boss:null, obstacles:[], orbs:[], powers:[], gunDrops:[], lifeCells:[], bullets:[], particles:[], stars:[] };
 
   function resize() { dpr=Math.min(window.devicePixelRatio||1,2); w=canvas.clientWidth; h=canvas.clientHeight; canvas.width=w*dpr; canvas.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); makeStars(); if(game.player) game.player.y=h-80; }
   function makeStars() { game.stars=Array.from({length:Math.max(60,Math.floor(w*h/9000))},()=>({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.5+.2,s:Math.random()*.45+.1})); }

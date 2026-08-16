@@ -44,7 +44,8 @@
       <div class="hud-item difficulty-readout"><span class="hud-label">MODE</span><strong id="difficultyValue">NORMAL</strong></div>
       <button id="pauseButton" class="pause-button" aria-label="Pause game">Ⅱ</button>
     </section>
-    <div id="bossAlert" class="boss-alert hidden" aria-live="polite"><span>BOSS SIGNAL</span><b>VOID WARDEN</b><i id="bossHealth"></i></div>
+    <div id="bossAlert" class="boss-alert hidden" aria-live="polite"><span id="bossLevel">LEVEL 1 BOSS</span><b id="bossName">VOID WARDEN</b><i id="bossHealth"></i></div>
+    <div id="gunMeter" class="gun-meter hidden" aria-live="polite"><span>PLASMA BLASTER</span><i id="gunCharge"></i></div>
 
     <section id="pauseScreen" class="screen hidden" aria-labelledby="pauseTitle">
       <div class="panel small-panel"><p class="eyebrow">SYSTEM HOLD</p><h2 id="pauseTitle">PAUSED</h2><p>Take a breath. The void can wait.</p><button id="resumeButton" class="primary-button">Resume <span>↗</span></button><p class="hint">Press P to resume</p></div>
@@ -63,6 +64,7 @@
 
     <div id="touchControls" class="touch-controls hidden" aria-label="Touch controls">
       <button id="leftButton" aria-label="Move left">◀</button>
+      <button id="fireButton" class="fire-button" aria-label="Fire blaster">●</button>
       <button id="rightButton" aria-label="Move right">▶</button>
     </div>
   </main>
