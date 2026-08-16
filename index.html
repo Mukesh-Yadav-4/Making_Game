@@ -41,11 +41,13 @@
     <section id="hud" class="hud hidden" aria-label="Game status">
       <div class="hud-item"><span class="hud-label">SCORE</span><strong id="scoreValue">000000</strong></div>
       <div class="hud-item lives"><span class="hud-label">LIVES</span><strong id="livesValue">◆ ◆ ◆</strong></div>
+      <div class="hud-item destroyed-readout"><span class="hud-label">DESTROYED</span><strong id="destroyedValue">0</strong></div>
       <div class="hud-item difficulty-readout"><span class="hud-label">MODE</span><strong id="difficultyValue">NORMAL</strong></div>
       <button id="pauseButton" class="pause-button" aria-label="Pause game">Ⅱ</button>
     </section>
     <div id="bossAlert" class="boss-alert hidden" aria-live="polite"><span id="bossLevel">LEVEL 1 BOSS</span><b id="bossName">VOID WARDEN</b><i id="bossHealth"></i></div>
     <div id="gunMeter" class="gun-meter hidden" aria-live="polite"><span>PLASMA BLASTER</span><i id="gunCharge"></i></div>
+    <div id="levelClear" class="level-clear hidden" aria-live="assertive"></div>
 
     <section id="pauseScreen" class="screen hidden" aria-labelledby="pauseTitle">
       <div class="panel small-panel"><p class="eyebrow">SYSTEM HOLD</p><h2 id="pauseTitle">PAUSED</h2><p>Take a breath. The void can wait.</p><button id="resumeButton" class="primary-button">Resume <span>↗</span></button><p class="hint">Press P to resume</p></div>
@@ -55,6 +57,7 @@
       <div class="panel small-panel game-over-panel">
         <p class="eyebrow danger">SIGNAL LOST</p><h2 id="gameOverTitle">GAME OVER</h2>
         <div class="results"><div><span>FINAL SCORE</span><strong id="finalScore">0</strong></div><div><span>HIGH SCORE</span><strong id="highScore">0</strong></div></div>
+        <div class="destroyed-summary"><span>HAZARDS DESTROYED</span><strong id="destroyedTotal">0</strong><p><b>BLOCKS</b> <i id="blocksDestroyed">0</i><b>METEORS</b> <i id="meteorsDestroyed">0</i><b>SHIPS</b> <i id="shipsDestroyed">0</i></p></div>
         <button id="restartButton" class="primary-button">Play Again <span>↻</span></button>
         <button id="menuButton" class="secondary-button">Main Menu</button>
         <p class="hint">Press R to restart</p>
