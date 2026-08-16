@@ -5,6 +5,97 @@
   const $ = id => document.getElementById(id);
   const screens = { start: $('startScreen'), pause: $('pauseScreen'), over: $('gameOverScreen') };
   const hud = $('hud'), touchControls = $('touchControls');
+
+  // --- Retention layer: combo + missions + feedback ---
+  const missionPool = [
+    {type:'destroy', target:12, reward:250, label:'Destroy 12 hazards'},
+    {type:'orbs', target:6, reward:300, label:'Collect 6 energy orbs'},
+    {type:'combo', target:5, reward:350, label:'Reach a x5 combo'},
+    {type:'survive', target:45, reward:450, label:'Survive for 45 seconds'},
+    {type:'boss', target:1, reward:550, label:'Defeat 1 boss'}
+  ];
+
+  function addRetentionUI(){
+    if($('retentionUI')) return;
+    const wrap=document.createElement('div');
+    wrap.id='retentionUI';
+    wrap.innerHTML=`
+      <div id="comboUI"><span>COMBO</span><b id="comboValue">x1</b><i id="comboBar"></i></div>
+      <div id="missionUI"><span>MISSION</span><b id="missionValue">Loading...</b><i id="missionBar"></i></div>
+      <div id="eventToast"></div>`;
+    document.querySelector('.app-shell').appendChild(wrap);
+    const s=document.createElement('style');
+    s.textContent=`
+      #retentionUI{position:absolute;inset:0;pointer-events:none;z-index:2;font-family:Arial,Helvetica,sans-serif}
+      #comboUI,#missionUI{position:absolute;top:max(66px,calc(env(safe-area-inset-top) + 56px));padding:7px 9px;background:rgba(5,10,25,.68);backdrop-filter:blur(3px);border:1px solid rgba(84,248,255,.32);box-shadow:0 0 14px rgba(84,248,255,.12)}
+      #comboUI{left:18px;width:115px;border-color:rgba(255,230,77,.45)}
+      #missionUI{right:18px;width:min(195px,42vw)}
+      #comboUI span,#missionUI span,#comboUI b,#missionUI b{display:block}
+      #comboUI span,#missionUI span{color:#8da0c5;font-size:.5rem;letter-spacing:.15em}
+      #comboUI b{color:#ffe64d;font-size:1.25rem;margin-top:2px;text-shadow:0 0 12px rgba(255,230,77,.5)}
+      #missionUI b{color:#d9fbff;font-size:.58rem;line-height:1.25;margin-top:3px}
+      #comboUI i,#missionUI i{display:block;height:3px;margin-top:6px;background:#ffe64d;box-shadow:0 0 8px #ffe64d;width:100%;transition:width .08s}
+      #missionUI i{background:#54f8ff;box-shadow:0 0 8px #54f8ff;width:0}
+      #eventToast{position:absolute;left:50%;top:35%;transform:translate(-50%,-50%) scale(.86);opacity:0;padding:8px 14px;border:1px solid #ffe64d;background:rgba(30,25,3,.84);color:#fff7b2;font-weight:900;letter-spacing:.1em;text-align:center;text-shadow:0 0 10px rgba(255,230,77,.45);transition:opacity .12s,transform .12s}
+      #eventToast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+      @media(max-width:520px){#comboUI{left:12px;top:max(112px,calc(env(safe-area-inset-top) + 100px))}#missionUI{right:12px;top:max(112px,calc(env(safe-area-inset-top) + 100px));width:150px}}
+      @media(max-width:420px){#missionUI{width:145px}}
+    `;
+    document.head.appendChild(s);
+  }
+  addRetentionUI();
+
+  const retention = {combo:0,bestCombo:0,comboTimer:0,nearMisses:0,mission:null,progress:{destroy:0,orbs:0,combo:0,survive:0,boss:0},completed:0};
+
+  function newMission(){
+    retention.mission={...missionPool[Math.floor(Math.random()*missionPool.length)]};
+    retention.progress={destroy:0,orbs:0,combo:0,survive:0,boss:0};
+    updateRetentionUI();
+  }
+
+  function updateRetentionUI(){
+    const mission=retention.mission;
+    $('comboValue').textContent=`x${Math.max(1,retention.combo)}`;
+    $('comboBar').style.width=`${Math.max(0,Math.min(100,retention.comboTimer/4*100))}%`;
+    if(mission){
+      const p=retention.progress[mission.type]||0;
+      $('missionValue').textContent=`${mission.label}  ${Math.min(mission.target,Math.floor(p))}/${mission.target}`;
+      $('missionBar').style.width=`${Math.min(100,p/mission.target*100)}%`;
+    }
+  }
+
+  function showEvent(message){
+    const el=$('eventToast'); el.textContent=message; el.classList.add('show');
+    clearTimeout(showEvent.t); showEvent.t=setTimeout(()=>el.classList.remove('show'),950);
+  }
+
+  function progressMission(type, amount=1){
+    if(!retention.mission || retention.mission.type!==type) return;
+    retention.progress[type]=Math.min(retention.mission.target,retention.progress[type]+amount);
+    if(retention.progress[type]>=retention.mission.target){
+      const reward=retention.mission.reward;
+      game.score+=reward; retention.completed++; beep('mission'); showEvent(`MISSION COMPLETE +${reward}`);
+      setTimeout(()=>{ if(game.state==='playing'){ newMission(); showEvent(`NEW MISSION: ${retention.mission.label}`); }},450);
+      retention.mission=null;
+    }
+    updateRetentionUI();
+  }
+
+  function addCombo(amount=1){
+    retention.combo=Math.min(10,retention.combo+amount);
+    retention.bestCombo=Math.max(retention.bestCombo,retention.combo);
+    retention.comboTimer=4;
+    progressMission('combo',retention.combo);
+    if(retention.combo>=3) showEvent(`COMBO x${retention.combo}`);
+    updateRetentionUI();
+  }
+
+  function resetCombo(){
+    retention.combo=0; retention.comboTimer=0; updateRetentionUI();
+  }
+
+  function comboMultiplier(){ return 1+Math.min(9,retention.combo)*.15; }
+
   const difficultyData = {
     easy:   {speed:175, spawn:1.25, maxObstacles:5, label:'EASY'},
     normal: {speed:225, spawn:.95, maxObstacles:7, label:'NORMAL'},
@@ -24,15 +115,15 @@
   function getLeaderboard() { try { return JSON.parse(localStorage.getItem('neonEscapeLeaderboard')||'[]'); } catch (_) { return []; } }
   function renderLeaderboard() { const scores=getLeaderboard(); for(const id of ['menuLeaderboard','gameOverLeaderboard']) { const list=$(id); list.innerHTML=scores.length?scores.map(score=>`<li><span>${score}</span></li>`).join(''):'<li class="empty">No runs recorded yet</li>'; } }
   function saveScore(score) { const scores=[...getLeaderboard(),score].sort((a,b)=>b-a).slice(0,5); localStorage.setItem('neonEscapeLeaderboard',JSON.stringify(scores)); renderLeaderboard(); }
-  function beep(type) { try { audioCtx ??= new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); const o=audioCtx.createOscillator(), g=audioCtx.createGain(); const map={start:[260,620,.16,'sine'],orb:[620,1120,.13,'triangle'],hit:[190,55,.25,'sawtooth'],shield:[400,760,.22,'sine'],life:[480,960,.28,'sine'],gunstart:[260,980,.28,'square'],gunend:[820,180,.3,'sine'],shot1:[940,520,.07,'square'],shot2:[520,180,.11,'sawtooth'],shot3:[180,38,.2,'sawtooth'],shot4:[95,20,.26,'sawtooth'],destroy:[140,45,.16,'sawtooth'],shatter:[220,28,.28,'square'],whoosh:[410,95,.13,'sine'],nova:[120,780,.38,'sawtooth'],attack:[70,32,.48,'sawtooth'],boss:[90,210,.4,'sawtooth'],win:[330,990,.5,'triangle'],over:[230,50,.55,'sawtooth']}; const [a,b,d,shape]=map[type]; o.type=shape;o.frequency.setValueAtTime(a,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,b),audioCtx.currentTime+d);g.gain.setValueAtTime(type.startsWith('shot')?.03:type==='destroy'||type==='whoosh'?.04:.085,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d); } catch (_) {} }
+  function beep(type) { try { audioCtx ??= new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); const o=audioCtx.createOscillator(), g=audioCtx.createGain(); const map={start:[260,620,.16,'sine'],orb:[620,1120,.13,'triangle'],hit:[190,55,.25,'sawtooth'],shield:[400,760,.22,'sine'],life:[480,960,.28,'sine'],gunstart:[260,980,.28,'square'],gunend:[820,180,.3,'sine'],shot1:[940,520,.07,'square'],shot2:[520,180,.11,'sawtooth'],shot3:[180,38,.2,'sawtooth'],shot4:[95,20,.26,'sawtooth'],destroy:[140,45,.16,'sawtooth'],shatter:[220,28,.28,'square'],whoosh:[410,95,.13,'sine'],nova:[120,780,.38,'sawtooth'],attack:[70,32,.48,'sawtooth'],boss:[90,210,.4,'sawtooth'],win:[330,990,.5,'triangle'],over:[230,50,.55,'sawtooth'],mission:[420,920,.24,'square'],combo:[520,1040,.12,'triangle']}; const [a,b,d,shape]=map[type]; o.type=shape;o.frequency.setValueAtTime(a,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,b),audioCtx.currentTime+d);g.gain.setValueAtTime(type.startsWith('shot')?.03:type==='destroy'||type==='whoosh'?.04:.085,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d); } catch (_) {} }
   function musicNote(frequency, when, length, volume, type='triangle') { if(!audioCtx)return; const o=audioCtx.createOscillator(),g=audioCtx.createGain(),filter=audioCtx.createBiquadFilter(); o.type=type;o.frequency.value=frequency;filter.type='lowpass';filter.frequency.value=game.boss?820:1250;g.gain.setValueAtTime(.001,when);g.gain.exponentialRampToValueAtTime(volume,when+.025);g.gain.exponentialRampToValueAtTime(.001,when+length);o.connect(filter).connect(g).connect(audioCtx.destination);o.start(when);o.stop(when+length+.03); }
-  function musicTick() { if(!audioCtx || game.state!=='playing')return; const now=audioCtx.currentTime; if(!musicNext)musicNext=now; const tempo=game.boss?.24:.38; const progression=[[146.83,174.61,220],[130.81,164.81,196],[174.61,220,261.63],[123.47,146.83,185]]; while(musicNext<now+.12){const bar=Math.floor(musicStep/8);const chord=progression[(bar+Math.floor(musicStep/48))%progression.length];musicNote(chord[0]/2,musicNext,tempo*.9,.17,'sine');if(musicStep%2===0)musicNote(chord[1],musicNext,tempo*.75,.115);if(musicStep%4===2)musicNote(chord[2],musicNext,tempo*.35,.09,'triangle');if(game.boss&&musicStep%2===0)musicNote(chord[0],musicNext,tempo*.22,.15,'sawtooth');musicStep++;musicNext+=tempo;} }
-  function startGame() { cancelAnimationFrame(animationId); game.state='playing'; game.score=0;game.lives=3;game.shield=false;game.gunTimer=0;game.gunCooldown=0;game.gunTier=1;game.elapsed=0;game.spawnTimer=.65;game.orbTimer=4;game.shieldTimer=10;game.gunTimerDrop=8;game.lifeTimer=34;game.novaTimer=30;game.bossTimer=25;game.bossLevel=1;game.scene=0;game.clearTimer=0;game.hitCooldown=0;game.shake=0;game.boss=null;game.destroyed={block:0,meteor:0,ship:0};game.obstacles=[];game.orbs=[];game.powers=[];game.gunDrops=[];game.novaDrops=[];game.novas=[];game.lifeCells=[];game.bullets=[];game.enemyShots=[];game.areaAttacks=[];game.particles=[];musicNext=0;musicStep=0; $('bossAlert').classList.add('hidden');$('gunMeter').classList.add('hidden');$('levelClear').classList.add('hidden');game.player={x:w/2,y:h-80,size:38,speed:780};show('none');setHud(true);updateHud();beep('start');last=performance.now();animationId=requestAnimationFrame(loop); }
-  function toMenu() { game.state='menu';cancelAnimationFrame(animationId);$('bossAlert').classList.add('hidden');$('gunMeter').classList.add('hidden');show('start');setHud(false);renderLeaderboard(); }
+  function musicTick() { if(!audioCtx || game.state!=='playing')return; const now=audioCtx.currentTime; if(!musicNext)musicNext=now; const tempo=game.boss?.24:.38; const progression=[[146.83,174.61,220],[130.81,164.81,196],[174.61,220,261.63],[123.47,146.83,185]]; while(musicNext<now+.12){const bar=Math.floor(musicStep/8);const chord=progression[(bar+Math.floor(musicStep/48))%progression.length];musicNote(chord[0]/2,musicNext,tempo*.9,.255,'sine');if(musicStep%2===0)musicNote(chord[1],musicNext,tempo*.75,.1725);if(musicStep%4===2)musicNote(chord[2],musicNext,tempo*.35,.135,'triangle');if(game.boss&&musicStep%2===0)musicNote(chord[0],musicNext,tempo*.22,.225,'sawtooth');musicStep++;musicNext+=tempo;} }
+  function startGame() { cancelAnimationFrame(animationId); game.state='playing'; game.score=0;game.lives=3;game.shield=false;game.gunTimer=0;game.gunCooldown=0;game.gunTier=1;game.elapsed=0;game.spawnTimer=.65;game.orbTimer=4;game.shieldTimer=10;game.gunTimerDrop=8;game.lifeTimer=34;game.novaTimer=30;game.bossTimer=25;game.bossLevel=1;game.scene=0;game.clearTimer=0;game.hitCooldown=0;game.shake=0;game.boss=null;game.destroyed={block:0,meteor:0,ship:0};game.obstacles=[];game.orbs=[];game.powers=[];game.gunDrops=[];game.novaDrops=[];game.novas=[];game.lifeCells=[];game.bullets=[];game.enemyShots=[];game.areaAttacks=[];game.particles=[];musicNext=0;musicStep=0; retention.combo=0;retention.bestCombo=0;retention.comboTimer=0;retention.nearMisses=0;retention.completed=0;newMission(); $('bossAlert').classList.add('hidden');$('gunMeter').classList.add('hidden');$('levelClear').classList.add('hidden');game.player={x:w/2,y:h-80,size:38,speed:780};$('retentionUI').style.display='block';show('none');setHud(true);updateHud();updateRetentionUI();beep('start');last=performance.now();animationId=requestAnimationFrame(loop); }
+  function toMenu() { game.state='menu';cancelAnimationFrame(animationId);$('bossAlert').classList.add('hidden');$('gunMeter').classList.add('hidden');$('retentionUI').style.display='none';show('start');setHud(false);renderLeaderboard(); }
   function togglePause() { if(game.state==='playing'){game.state='paused';musicNext=0;show('pause');}else if(game.state==='paused'){game.state='playing';musicNext=0;show('none');last=performance.now();animationId=requestAnimationFrame(loop);} }
   function difficulty() { return difficultyData[selectedDifficulty]; }
   function spawnObstacle(x) { const roll=Math.random(), type=game.elapsed>25&&roll>.87?'ship':game.elapsed>12&&roll>.68?'meteor':'block'; const size=type==='block'?30+Math.random()*34:type==='meteor'?58+Math.random()*38:66+Math.random()*34; const stats={block:{health:2,points:35},meteor:{health:5,points:100},ship:{health:8,points:180}}[type]; game.obstacles.push({x:x??(18+Math.random()*(w-36-size)),y:-size,size,type,...stats,speed:difficulty().speed*(.82+Math.random()*.5)+game.elapsed*4.4,spin:(Math.random()-.5)*3,vx:type==='ship'?(Math.random()>.5?1:-1)*(42+Math.random()*55):0}); }
-  function destroyObstacle(o,color='#ff3dc8') { if(o.counted)return; o.dead=true;o.counted=true;game.destroyed[o.type]++;game.score+=o.points;addParticles(o.x+o.size/2,o.y+o.size/2,color,20);beep('destroy'); }
+  function destroyObstacle(o,color='#ff3dc8') { if(o.counted)return; o.dead=true;o.counted=true;game.destroyed[o.type]++;game.score+=Math.round(o.points*comboMultiplier());progressMission('destroy');addCombo(1);addParticles(o.x+o.size/2,o.y+o.size/2,color,20);beep('destroy'); }
   function spawnOrb() { const p=game.player; const x=Math.max(24,Math.min(w-24,p.x+(Math.random()-.5)*Math.min(260,w*.42))); game.orbs.push({x,y:-20,r:10,speed:125+game.elapsed*.8,pulse:Math.random()*6.28}); }
   function spawnShield() { game.powers.push({x:26+Math.random()*(w-52),y:-22,r:12,speed:155,pulse:0}); }
   function spawnGun() { const roll=Math.random(),tier=roll>.97?4:roll>.87?3:roll>.62?2:1; game.gunDrops.push({x:28+Math.random()*(w-56),y:-25,r:15+tier*2,speed:145,pulse:0,tier}); }
@@ -40,16 +131,16 @@
   function spawnLifeCell() { game.lifeCells.push({x:28+Math.random()*(w-56),y:-25,r:14,speed:130,pulse:0}); }
   function bossInfo(level) { const [name,color]=bossTypes[(level-1)%bossTypes.length]; return {name,color,rank:Math.ceil(level/bossTypes.length)}; }
   function summonBoss() { const info=bossInfo(game.bossLevel), scale=1+Math.min(.55,(game.bossLevel-1)*.08), health=20+game.bossLevel*55; game.boss={x:w/2,y:110,width:142*scale,height:68*scale,dir:Math.random()>.5?1:-1,time:0,attack:.9,maxHealth:health,health,info}; $('bossLevel').textContent=`LEVEL ${game.bossLevel} BOSS`; $('bossName').textContent=info.name; $('bossAlert').style.borderColor=info.color; $('bossAlert').classList.remove('hidden');beep('boss'); }
-  function clearBoss() { const b=game.boss;if(!b)return; game.score+=500+game.bossLevel*140; addParticles(b.x,b.y,b.info.color,70); game.scene=(game.scene+1)%themes.length; const cleared=game.bossLevel;game.bossLevel++;game.bossTimer=35+Math.random()*16;game.clearTimer=3;game.boss=null;$('bossAlert').classList.add('hidden');$('levelClear').textContent=`LEVEL ${cleared} CLEARED`;$('levelClear').classList.remove('hidden');beep('shatter');beep('win'); }
+  function clearBoss() { const b=game.boss;if(!b)return; game.score+=500+game.bossLevel*140; progressMission('boss'); addCombo(2); addParticles(b.x,b.y,b.info.color,70); game.scene=(game.scene+1)%themes.length; const cleared=game.bossLevel;game.bossLevel++;game.bossTimer=35+Math.random()*16;game.clearTimer=3;game.boss=null;$('bossAlert').classList.add('hidden');$('levelClear').textContent=`LEVEL ${cleared} CLEARED`;$('levelClear').classList.remove('hidden');beep('shatter');beep('win'); }
   function fireGun() { if(game.gunTimer<=0||game.gunCooldown>0)return; const p=game.player,stats=[null,{damage:1,pierce:1,color:'#ffe64d',sound:'shot1'},{damage:2,pierce:2,color:'#54f8ff',sound:'shot2'},{damage:4,pierce:3,color:'#5b176e',sound:'shot3'},{damage:7,pierce:5,color:'#ff4b4b',sound:'shot4'}][game.gunTier]; game.bullets.push({x:p.x,y:p.y-p.size*.7,speed:880+game.gunTier*45,...stats});game.gunCooldown=keys.fire?.09:.19;beep(stats.sound); }
   function activateNova() { const p=game.player;game.novas.push({x:p.x,y:p.y,r:12,max:210,life:.55});for(const o of game.obstacles)destroyObstacle(o,'#a56bff');for(const s of game.enemyShots)s.dead=true;for(const a of game.areaAttacks)a.y=h+100;if(game.boss){game.boss.health-=18; if(game.boss.health<=0)clearBoss();}beep('nova'); }
   function addParticles(x,y,color,count=14) { for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,v=40+Math.random()*180;game.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.4+Math.random()*.45,max:.85,color,size:1+Math.random()*3});} }
-  function hit() { if(game.hitCooldown>0)return; if(game.shield){game.shield=false;game.hitCooldown=.6;addParticles(game.player.x,game.player.y,'#54f8ff',24);beep('shield');return;} game.lives--;game.hitCooldown=1.2;game.shake=.45;addParticles(game.player.x,game.player.y,'#ff3dc8',28);beep('hit');updateHud();if(game.lives<=0){setTimeout(endGame,350);} }
-  function endGame() { if(game.state!=='playing')return;game.state='over';setHud(false);$('bossAlert').classList.add('hidden');$('gunMeter').classList.add('hidden');const final=Math.floor(game.score);const high=Math.max(final,Number(localStorage.getItem('neonEscapeHighScore'))||0);localStorage.setItem('neonEscapeHighScore',high);saveScore(final);$('finalScore').textContent=final;$('highScore').textContent=high;const total=Object.values(game.destroyed).reduce((a,b)=>a+b,0);$('destroyedTotal').textContent=total;$('blocksDestroyed').textContent=game.destroyed.block;$('meteorsDestroyed').textContent=game.destroyed.meteor;$('shipsDestroyed').textContent=game.destroyed.ship;show('over');beep('over'); }
+  function hit() { if(game.hitCooldown>0)return; resetCombo(); if(game.shield){game.shield=false;game.hitCooldown=.6;addParticles(game.player.x,game.player.y,'#54f8ff',24);beep('shield');return;} game.lives--;game.hitCooldown=1.2;game.shake=.45;addParticles(game.player.x,game.player.y,'#ff3dc8',28);beep('hit');updateHud();if(game.lives<=0){setTimeout(endGame,350);} }
+  function endGame() { if(game.state!=='playing')return;game.state='over';setHud(false);$('bossAlert').classList.add('hidden');$('gunMeter').classList.add('hidden');$('retentionUI').style.display='none';showEvent(`BEST COMBO x${Math.max(1,retention.bestCombo)}`);const final=Math.floor(game.score);const high=Math.max(final,Number(localStorage.getItem('neonEscapeHighScore'))||0);localStorage.setItem('neonEscapeHighScore',high);saveScore(final);$('finalScore').textContent=final;$('highScore').textContent=high;const total=Object.values(game.destroyed).reduce((a,b)=>a+b,0);$('destroyedTotal').textContent=total;$('blocksDestroyed').textContent=game.destroyed.block;$('meteorsDestroyed').textContent=game.destroyed.meteor;$('shipsDestroyed').textContent=game.destroyed.ship;show('over');beep('over'); }
   function overlaps(a,b,rA,rB) { return Math.abs(a.x-b.x)<rA+rB && Math.abs(a.y-b.y)<rA+rB; }
   function update(dt) {
     const p=game.player;
-    game.elapsed+=dt; game.score+=dt*(10+game.elapsed*.16); game.hitCooldown=Math.max(0,game.hitCooldown-dt); game.gunCooldown=Math.max(0,game.gunCooldown-dt); game.clearTimer=Math.max(0,game.clearTimer-dt); if(game.clearTimer===0)$('levelClear').classList.add('hidden'); game.shake=Math.max(0,game.shake-dt); musicTick();
+    game.elapsed+=dt; game.score+=dt*(10+game.elapsed*.16); game.hitCooldown=Math.max(0,game.hitCooldown-dt); game.gunCooldown=Math.max(0,game.gunCooldown-dt); game.clearTimer=Math.max(0,game.clearTimer-dt); retention.comboTimer=Math.max(0,retention.comboTimer-dt); if(retention.comboTimer<=0&&retention.combo>0)resetCombo(); if(game.clearTimer===0)$('levelClear').classList.add('hidden'); game.shake=Math.max(0,game.shake-dt); progressMission('survive',dt); musicTick();
     const timeScale=game.clearTimer>0?.55:1; for(const star of game.stars){star.y+=star.speed*dt*(game.boss?1.65:1)*timeScale;if(star.y>h){star.y=-8;star.x=Math.random()*w;}}
     const direction=(keys.right?1:0)-(keys.left?1:0); p.x=Math.max(p.size/2,Math.min(w-p.size/2,p.x+direction*p.speed*dt));
     game.spawnTimer-=dt; game.orbTimer-=dt; game.shieldTimer-=dt; game.gunTimerDrop-=dt; game.lifeTimer-=dt; game.novaTimer-=dt; game.bossTimer-=dt;
@@ -66,7 +157,12 @@
       const b=game.boss; b.time+=dt; b.attack-=dt*timeScale; b.x+=b.dir*115*dt*timeScale;
       if(b.x<b.width*.6 || b.x>w-b.width*.6) b.dir*=-1;
       if(b.attack<=0){
-        const attackType=Math.floor(Math.random()*3);
+        let attackType=Math.floor(Math.random()*3);
+        const bossType=game.boss.info[0];
+        if(bossType==='CIRCUIT HYDRA') attackType=1;
+        else if(bossType==='NIGHT REAPER') attackType=Math.random()<.65?0:2;
+        else if(bossType==='CHROME BEHEMOTH') attackType=2;
+        else if(bossType==='THE NULL KING') attackType=Math.random()<.5?1:2;
         if(attackType===0){ const spread=game.bossLevel>3?[-34,0,34]:[-20,20]; spread.forEach(offset=>spawnObstacle(Math.max(16,Math.min(w-70,b.x+offset-28)))); }
         else if(attackType===1){ for(let i=0;i<2+Math.min(3,game.bossLevel);i++)game.enemyShots.push({x:b.x+(i-(1+Math.min(3,game.bossLevel)/2))*18,y:b.y+b.height*.45,size:10+game.bossLevel*1.5,speed:260+game.bossLevel*22}); }
         else game.areaAttacks.push({y:b.y+b.height*.5,speed:180+game.bossLevel*18,gapX:p.x,gap:74+Math.max(0,32-game.bossLevel*3),hit:false});
@@ -79,7 +175,7 @@
     for(const o of game.orbs){
       o.y+=o.speed*dt*timeScale; o.pulse+=dt*7; const dx=p.x-o.x, dy=p.y-o.y, distance=Math.hypot(dx,dy);
       if(distance>.1 && distance<145 && o.y>p.y-165){ const pull=(1-distance/145)*520; o.x+=dx/distance*pull*dt; o.y+=dy/distance*pull*dt; }
-      if(overlaps(p,o,p.size*.55,o.r)){ o.dead=true; game.score+=75; addParticles(o.x,o.y,'#ffe64d',18); beep('orb'); }
+      if(overlaps(p,o,p.size*.55,o.r)){ o.dead=true; game.score+=75; progressMission('orbs'); addParticles(o.x,o.y,'#ffe64d',18); beep('orb'); }
     }
     for(const s of game.powers){ s.y+=s.speed*dt*timeScale; s.pulse+=dt*6; if(overlaps(p,s,p.size*.42,s.r)){ s.dead=true; game.shield=true; addParticles(s.x,s.y,'#54f8ff',22); beep('shield'); } }
     for(const gun of game.gunDrops){ gun.y+=gun.speed*dt*timeScale; gun.pulse+=dt*7; if(overlaps(p,gun,p.size*.46,gun.r)){ gun.dead=true;game.gunTimer=11;game.gunTier=gun.tier;addParticles(gun.x,gun.y,gun.tier===4?'#ff4b4b':gun.tier===3?'#5b176e':gun.tier===2?'#54f8ff':'#ffe64d',32);beep('gunstart'); } }
