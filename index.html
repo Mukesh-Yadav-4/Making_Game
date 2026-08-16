@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#060616">
+  <title>Neon Escape</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <canvas id="gameCanvas" aria-label="Neon Escape game area"></canvas>
+
+    <section id="startScreen" class="screen active" aria-labelledby="gameTitle">
+      <div class="panel intro-panel">
+        <p class="eyebrow">SURVIVAL PROTOCOL // 01</p>
+        <h1 id="gameTitle">NEON <span>ESCAPE</span></h1>
+        <p class="tagline">Stay in the light. Dodge the falling void.</p>
+        <div class="instruction-grid">
+          <div><b>MOVE</b><span>← → or A / D</span></div>
+          <div><b>COLLECT</b><span>Orbs for bonus energy</span></div>
+          <div><b>DEFEND</b><span>Shield blocks one hit</span></div>
+        </div>
+        <div class="difficulty" role="group" aria-label="Select difficulty">
+          <p>SELECT DIFFICULTY</p>
+          <div class="difficulty-options">
+            <button class="difficulty-button" data-difficulty="easy">Easy</button>
+            <button class="difficulty-button selected" data-difficulty="normal">Normal</button>
+            <button class="difficulty-button" data-difficulty="hard">Hard</button>
+          </div>
+        </div>
+        <button id="startButton" class="primary-button">Start Game <span>↗</span></button>
+        <p class="hint">Press P to pause • R to restart</p>
+        <div class="leaderboard" aria-label="Local leaderboard">
+          <p>LOCAL TOP RUNS</p>
+          <ol id="menuLeaderboard"></ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="hud" class="hud hidden" aria-label="Game status">
+      <div class="hud-item"><span class="hud-label">SCORE</span><strong id="scoreValue">000000</strong></div>
+      <div class="hud-item lives"><span class="hud-label">LIVES</span><strong id="livesValue">◆ ◆ ◆</strong></div>
+      <div class="hud-item difficulty-readout"><span class="hud-label">MODE</span><strong id="difficultyValue">NORMAL</strong></div>
+      <button id="pauseButton" class="pause-button" aria-label="Pause game">Ⅱ</button>
+    </section>
+    <div id="bossAlert" class="boss-alert hidden" aria-live="polite"><span>BOSS SIGNAL</span><b>VOID WARDEN</b><i id="bossHealth"></i></div>
+
+    <section id="pauseScreen" class="screen hidden" aria-labelledby="pauseTitle">
+      <div class="panel small-panel"><p class="eyebrow">SYSTEM HOLD</p><h2 id="pauseTitle">PAUSED</h2><p>Take a breath. The void can wait.</p><button id="resumeButton" class="primary-button">Resume <span>↗</span></button><p class="hint">Press P to resume</p></div>
+    </section>
+
+    <section id="gameOverScreen" class="screen hidden" aria-labelledby="gameOverTitle">
+      <div class="panel small-panel game-over-panel">
+        <p class="eyebrow danger">SIGNAL LOST</p><h2 id="gameOverTitle">GAME OVER</h2>
+        <div class="results"><div><span>FINAL SCORE</span><strong id="finalScore">0</strong></div><div><span>HIGH SCORE</span><strong id="highScore">0</strong></div></div>
+        <button id="restartButton" class="primary-button">Play Again <span>↻</span></button>
+        <button id="menuButton" class="secondary-button">Main Menu</button>
+        <p class="hint">Press R to restart</p>
+        <div class="leaderboard compact" aria-label="Local leaderboard"><p>LOCAL TOP RUNS</p><ol id="gameOverLeaderboard"></ol></div>
+      </div>
+    </section>
+
+    <div id="touchControls" class="touch-controls hidden" aria-label="Touch controls">
+      <button id="leftButton" aria-label="Move left">◀</button>
+      <button id="rightButton" aria-label="Move right">▶</button>
+    </div>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
