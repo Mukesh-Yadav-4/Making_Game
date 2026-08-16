@@ -10,7 +10,7 @@ A fast-paced browser survival game built with \*\*HTML, CSS, and JavaScript\*\*.
 
 
 
-\*\*\[▶ Play Neon Escape](https://mukesh-yadav-4.github.io/Making\_Game/)\*\*
+\*\*\[▶ Play Neon Escape]https://mukesh-yadav-4.github.io/Making_Game/
 
 
 
